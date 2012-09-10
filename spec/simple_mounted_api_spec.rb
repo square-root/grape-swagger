@@ -31,16 +31,16 @@ describe "a simple mounted api" do
 
   it "retrieves swagger-documentation on /swagger_doc" do
     get '/swagger_doc'
-    last_response.body.should == "{:apiVersion=>\"0.1\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :operations=>[], :apis=>[{:path=>\"/swagger_doc/simple.{format}\"}, {:path=>\"/swagger_doc/simple_with_headers.{format}\"}, {:path=>\"/swagger_doc/swagger_doc.{format}\"}]}"
+    last_response.body.should == "{:apiVersion=>\"0.1\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :operations=>[], :apis=>[{:path=>\"/swagger_doc/.{format}\"}]}"
   end
 
   it "retrieves the documentation for mounted-api" do
     get '/swagger_doc/simple'
-    last_response.body.should == "{:apiVersion=>\"0.1\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :resourcePath=>\"\", :apis=>[{:path=>\"/simple.{format}\", :operations=>[{:notes=>\"_test_\", :summary=>\"this gets something\", :nickname=>\"GET-simple---format-\", :httpMethod=>\"GET\", :parameters=>[]}]}]}"
+    last_response.body.should == "{:apiVersion=>\"0.1\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :resourcePath=>\"\", :apis=>[{:path=>\"/simple.{format}\", :operations=>[{:notes=>\"_test_\", :summary=>\"this gets something\", :nickname=>\"GET-simple---format-\", :httpMethod=>\"GET\", :parameters=>[]}]}, {:path=>\"/simple_with_headers.{format}\", :operations=>[{:notes=>nil, :summary=>\"this gets something else\", :nickname=>\"GET-simple_with_headers---format-\", :httpMethod=>\"GET\", :parameters=>[{:paramType=>\"header\", :name=>\"XAuthToken\", :description=>\"A required header.\", :dataType=>\"String\", :required=>true}, {:paramType=>\"header\", :name=>\"XOtherHeader\", :description=>\"An optional header.\", :dataType=>\"String\", :required=>false}]}]}]}"
   end
 
   it "retrieves the documentation for mounted-api that includes headers" do
     get '/swagger_doc/simple_with_headers'
-    last_response.body.should == "{:apiVersion=>\"0.1\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :resourcePath=>\"\", :apis=>[{:path=>\"/simple_with_headers.{format}\", :operations=>[{:notes=>nil, :summary=>\"this gets something else\", :nickname=>\"GET-simple_with_headers---format-\", :httpMethod=>\"GET\", :parameters=>[{:paramType=>\"header\", :name=>\"XAuthToken\", :description=>\"A required header.\", :dataType=>\"String\", :required=>true}, {:paramType=>\"header\", :name=>\"XOtherHeader\", :description=>\"An optional header.\", :dataType=>\"String\", :required=>false}]}]}]}"
+    last_response.body.should == "{:apiVersion=>\"0.1\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :resourcePath=>\"\", :apis=>[{:path=>\"/simple.{format}\", :operations=>[{:notes=>\"_test_\", :summary=>\"this gets something\", :nickname=>\"GET-simple---format-\", :httpMethod=>\"GET\", :parameters=>[]}]}, {:path=>\"/simple_with_headers.{format}\", :operations=>[{:notes=>nil, :summary=>\"this gets something else\", :nickname=>\"GET-simple_with_headers---format-\", :httpMethod=>\"GET\", :parameters=>[{:paramType=>\"header\", :name=>\"XAuthToken\", :description=>\"A required header.\", :dataType=>\"String\", :required=>true}, {:paramType=>\"header\", :name=>\"XOtherHeader\", :description=>\"An optional header.\", :dataType=>\"String\", :required=>false}]}]}]}"
   end
 end
