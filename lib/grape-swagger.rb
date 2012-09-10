@@ -5,6 +5,20 @@ module Grape
     class << self
       attr_reader :combined_routes
 
+
+# RRR - START
+      alias original_mount mount
+
+      def mount(mounts)
+        original_mount mounts
+        @combined_routes ||= {}
+        mounts::routes.each do |route|
+          resource = route.instance_variable_get("@options")[:namespace].gsub("/", '').to_sym || 'global'
+          @combined_routes[resource.downcase] ||= []
+          @combined_routes[resource.downcase] << route
+        end
+      end
+# RRR - END
       def add_swagger_documentation(options={})
         documentation_class = create_documentation_class
 
@@ -54,7 +68,7 @@ module Grape
             api_version = options[:api_version]
             base_path = options[:base_path]
 
-            desc 'Swagger compatible API description'
+            desc 'Swagger compatible API description', {:no_doc=>true}
             get @@mount_path do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
@@ -80,7 +94,7 @@ module Grape
             desc 'Swagger compatible API description for specific API', :params =>
               {
                 "name" => { :desc => "Resource name of mounted API", :type => "string", :required => true },
-              }
+              }, :no_doc=>true
             get "#{@@mount_path}/:name" do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
@@ -89,20 +103,21 @@ module Grape
                 notes = route.route_notes && @@markdown ? Kramdown::Document.new(strip_heredoc(route.route_notes)).to_html : route.route_notes
                 http_codes = parse_http_codes route.route_http_codes
                 operations = {
-                    :notes => notes,
-                    :summary => route.route_description || '',
-                    :nickname   => route.route_method + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
-                    :httpMethod => route.route_method,
-                    :parameters => parse_header_params(route.route_headers) +
-                      parse_params(route.route_params, route.route_path, route.route_method)
-                }
+                        :notes => notes,
+                        :summary => route.route_description || '',
+                        :nickname   => (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')) + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
+                        :httpMethod => (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')),
+                        :parameters => parse_header_params(route.route_headers) +
+                          parse_params(route.route_params, route.route_path, (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')))
+                      }
+
                 operations.merge!({:errorResponses => http_codes}) unless http_codes.empty?
                 {
                   :path => parse_path(route.route_path, api_version),
                   :operations => [operations]
                 }
               end
-
+              routes_array.flatten!.delete_if{|route| route.nil?}
               {
                 apiVersion: api_version,
                 swaggerVersion: "1.1",
