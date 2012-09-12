@@ -14,8 +14,10 @@ module Grape
         @combined_routes ||= {}
         mounts::routes.each do |route|
           resource = route.instance_variable_get("@options")[:namespace].gsub("/", '').to_sym || 'global'
-          @combined_routes[resource.downcase] ||= []
-          @combined_routes[resource.downcase] << route
+          unless resource.to_s == ''
+            @combined_routes[resource.downcase] ||= []
+            @combined_routes[resource.downcase] << route
+          end
         end
       end
 # RRR - END
@@ -68,12 +70,11 @@ module Grape
             api_version = options[:api_version]
             base_path = options[:base_path]
 
-            desc 'Swagger compatible API description', {:no_doc=>true}
+            desc 'Swagger compatible API description'#, {:no_doc=>true}
             get @@mount_path do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
               routes = @@target_class::combined_routes
-
               if @@hide_documentation_path
                 routes.reject!{ |route, value| "/#{route}/".index(parse_path(@@mount_path, nil) << '/') == 0 }
               end
@@ -81,7 +82,6 @@ module Grape
               routes_array = routes.keys.map do |local_route|
                   { :path => "#{parse_path(route.route_path.gsub('(.:format)', ''),route.route_version)}/#{local_route}#{@@hide_format ? '' : '.{format}'}" }
               end
-
               {
                 apiVersion: api_version,
                 swaggerVersion: "1.1",
@@ -94,7 +94,7 @@ module Grape
             desc 'Swagger compatible API description for specific API', :params =>
               {
                 "name" => { :desc => "Resource name of mounted API", :type => "string", :required => true },
-              }, :no_doc=>true
+              }#, :no_doc=>true
             get "#{@@mount_path}/:name" do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
@@ -105,8 +105,8 @@ module Grape
                 operations = {
                         :notes => notes,
                         :summary => route.route_description || '',
-                        :nickname   => (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')) + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
-                        :httpMethod => (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')),
+                        :nickname   => (route.route_method || allowed_methods.join(',')) + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
+                        :httpMethod => (route.route_method || allowed_methods.join(',')),
                         :parameters => parse_header_params(route.route_headers) +
                           parse_params(route.route_params, route.route_path, (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')))
                       }
@@ -117,7 +117,8 @@ module Grape
                   :operations => [operations]
                 }
               end
-              routes_array.flatten!.delete_if{|route| route.nil?}
+              routes_array.flatten!
+              routes_array.delete_if{|route| route.nil?} if(routes_array)
               {
                 apiVersion: api_version,
                 swaggerVersion: "1.1",
