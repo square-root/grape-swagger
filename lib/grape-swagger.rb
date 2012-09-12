@@ -12,8 +12,10 @@ module Grape
         @combined_routes ||= {}
         mounts::routes.each do |route|
           resource = route.instance_variable_get("@options")[:namespace].gsub("/", '').to_sym || 'global'
-          @combined_routes[resource.downcase] ||= []
-          @combined_routes[resource.downcase] << route
+          unless resource.to_s == ''
+            @combined_routes[resource.downcase] ||= []
+            @combined_routes[resource.downcase] << route
+          end
         end
       end
 
@@ -52,15 +54,16 @@ module Grape
             api_version = options[:api_version]
             base_path = options[:base_path]
 
-            desc 'Swagger compatible API description', {:no_doc=>true}
+            desc 'Swagger compatible API description'#, {:no_doc=>true}
             get @@mount_path do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
               routes = @@target_class::combined_routes
-
               routes_array = routes.keys.map do |route|
-                  { :path => "#{@@mount_path}/#{route}.{format}" }
+                { :path => "#{@@mount_path}/#{route}.{format}" }
               end
+              # clear the unexisting routes (not sure why this is happenning)
+              routes_array.delete_if{|r|r.nil?}
               {
                 apiVersion: api_version,
                 swaggerVersion: "1.1",
@@ -73,30 +76,32 @@ module Grape
             desc 'Swagger compatible API description for specific API', :params =>
               {
                 "name" => { :desc => "Resource name of mounted API", :type => "string", :required => true },
-              }, :no_doc=>true
+              }#, :no_doc=>true
             get "#{@@mount_path}/:name" do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
-              routes = @@target_class::combined_routes
+              routes = @@target_class::combined_routes.select{|key,val| key.to_s == params[:name]}
               routes_array = routes.map do |k,route_classes|
                 route_classes.map do |route|
                   unless route.instance_variable_get("@options")[:no_doc]
                     notes = route.route_notes && @@markdown ? Kramdown::Document.new(route.route_notes.strip_heredoc).to_html : route.route_notes
+                    allowed_methods = route.instance_variable_get("@options")[:allowed_methods] ? route.instance_variable_get("@options")[:allowed_methods] : ['GET']
                     {
                       :path => parse_path(route.route_path, api_version),
                       :operations => [{
                         :notes => notes,
                         :summary => route.route_description || '',
-                        :nickname   => (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')) + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
-                        :httpMethod => (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')),
+                        :nickname   => (route.route_method || allowed_methods.join(',')) + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
+                        :httpMethod => (route.route_method || allowed_methods.join(',')),
                         :parameters => parse_header_params(route.route_headers) +
-                          parse_params(route.route_params, route.route_path, (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')))
+                          parse_params(route.route_params, route.route_path, (route.route_method || allowed_methods.join(',')))
                       }]
                     }
                   end
                 end
               end
-              routes_array.flatten!.delete_if{|route| route.nil?}
+              routes_array.flatten!
+              routes_array.delete_if{|route| route.nil?} if(routes_array)
               {
                 apiVersion: api_version,
                 swaggerVersion: "1.1",

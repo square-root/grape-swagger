@@ -57,7 +57,7 @@ describe "options: " do
 
     it "retrieves the same api version for mounted-api" do
       get '/swagger_doc/something'
-      last_response.body.should == "{:apiVersion=>\"101\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :resourcePath=>\"\", :apis=>[{:path=>\"/something.{format}\", :operations=>[{:notes=>nil, :summary=>\"this gets something\", :nickname=>\"GET-something---format-\", :httpMethod=>\"GET\", :parameters=>[]}]}]}"
+      last_response.body.should == "{:apiVersion=>\"101\", :swaggerVersion=>\"1.1\", :basePath=>\"http://example.org\", :resourcePath=>\"\", :apis=>[]}"
     end
   end
 
