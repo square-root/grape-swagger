@@ -67,6 +67,8 @@ module Grape
             @@markdown = options[:markdown]
             @@hide_documentation_path = options[:hide_documentation_path]
             @@hide_format = options[:hide_format]
+            @@include_object_fields = options[:display_object_fields]
+
             api_version = options[:api_version]
             base_path = options[:base_path]
 
@@ -100,7 +102,14 @@ module Grape
               header['Access-Control-Request-Method'] = '*'
               routes = @@target_class::combined_routes[params[:name]]
               routes_array = routes.map do |route|
-                notes = route.route_notes && @@markdown ? Kramdown::Document.new(strip_heredoc(route.route_notes)).to_html : route.route_notes
+                unless route.instance_variable_get("@options")[:no_doc]
+                    #notes = route.route_notes && @@markdown ? Kramdown::Document.new(route.route_notes.strip_heredoc).to_html : route.route_notes
+                    notes = route.route_notes && @@markdown ? Kramdown::Document.new(strip_heredoc(route.route_notes)).to_html : route.route_notes
+                    if @@include_object_fields
+                      additional_notes = describe_entity_documentation(route.instance_variable_get("@options")[:object_fields])
+                      notes << additional_notes unless additional_notes.blank?
+                    end
+                allowed_methods = route.instance_variable_get("@options")[:allowed_methods] ? route.instance_variable_get("@options")[:allowed_methods] : ['GET']
                 http_codes = parse_http_codes route.route_http_codes
                 operations = {
                         :notes => notes,
@@ -116,6 +125,7 @@ module Grape
                   :path => parse_path(route.route_path, api_version),
                   :operations => [operations]
                 }
+                end
               end
               routes_array.flatten!
               routes_array.delete_if{|route| route.nil?} if(routes_array)
@@ -131,6 +141,19 @@ module Grape
 
 
           helpers do
+            def describe_entity_documentation(object_fields, subtitle='Success Response')
+              additional_notes = ''
+              if(object_fields.size > 0)
+                fields_hash = {}
+                additional_notes = "<h4>#{subtitle}</h4><pre>{<br/>"
+                object_fields.each_pair do |key, val|
+                  additional_notes << "  #{key} [#{val[:type].capitalize}]: #{val[:desc]}<br/>"
+                end
+                additional_notes << "}</pre>"
+              end
+              additional_notes
+            end
+
             def parse_params(params, path, method)
               if params
                 params.map do |param, value|
