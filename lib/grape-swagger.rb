@@ -51,6 +51,7 @@ module Grape
             @@mount_path = options[:mount_path]
             @@class_name = options[:class_name] || options[:mount_path].gsub('/','')
             @@markdown = options[:markdown]
+            @@include_object_fields = options[:display_object_fields]
             api_version = options[:api_version]
             base_path = options[:base_path]
 
@@ -85,6 +86,10 @@ module Grape
                 route_classes.map do |route|
                   unless route.instance_variable_get("@options")[:no_doc]
                     notes = route.route_notes && @@markdown ? Kramdown::Document.new(route.route_notes.strip_heredoc).to_html : route.route_notes
+                    if @@include_object_fields
+                      additional_notes = describe_entity_documentation(route.instance_variable_get("@options")[:object_fields])
+                      notes << additional_notes unless additional_notes.blank?
+                    end
                     allowed_methods = route.instance_variable_get("@options")[:allowed_methods] ? route.instance_variable_get("@options")[:allowed_methods] : ['GET']
                     {
                       :path => parse_path(route.route_path, api_version),
@@ -114,6 +119,19 @@ module Grape
 
 
           helpers do
+            def describe_entity_documentation(object_fields, subtitle='Success Response')
+              additional_notes = ''
+              if(object_fields.size > 0)
+                fields_hash = {}
+                additional_notes = "<h4>#{subtitle}</h4><pre>{<br/>"
+                object_fields.each_pair do |key, val|
+                  additional_notes << "  #{key} [#{val[:type].capitalize}]: #{val[:desc]}<br/>"
+                end
+                additional_notes << "}</pre>"
+              end
+              additional_notes
+            end
+            
             def parse_params(params, path, method)
               if params
                 params.map do |param, value|
