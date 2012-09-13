@@ -121,7 +121,7 @@ module Grape
           helpers do
             def describe_entity_documentation(object_fields, subtitle='Success Response')
               additional_notes = ''
-              if(object_fields.size > 0)
+              if(object_fields && object_fields.size > 0)
                 fields_hash = {}
                 additional_notes = "<h4>#{subtitle}</h4><pre>{<br/>"
                 object_fields.each_pair do |key, val|
