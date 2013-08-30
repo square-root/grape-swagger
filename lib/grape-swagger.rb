@@ -5,22 +5,6 @@ module Grape
     class << self
       attr_reader :combined_routes
 
-
-# RRR - START
-      alias original_mount mount
-
-      def mount(mounts)
-        original_mount mounts
-        @combined_routes ||= {}
-        mounts::routes.each do |route|
-          resource = route.instance_variable_get("@options")[:namespace].gsub("/", '').to_sym || 'global'
-          unless resource.to_s == ''
-            @combined_routes[resource.downcase] ||= []
-            @combined_routes[resource.downcase] << route
-          end
-        end
-      end
-# RRR - END
       def add_swagger_documentation(options={})
         documentation_class = create_documentation_class
 
@@ -29,7 +13,7 @@ module Grape
 
         @combined_routes = {}
         routes.each do |route|
-          resource = route.route_path.match('\/(\w*?)[\.\/\(]').captures.first
+          resource = route.route_path.gsub(/\/api\/:version/, '').match('\/(\w*?)[\.\/\(]').captures.first
           next if resource.empty?
           resource.downcase!
           @combined_routes[resource] ||= []
@@ -76,14 +60,18 @@ module Grape
             get @@mount_path do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
+
+              # clear the unexisting routes (not sure why this is happenning)
               routes = @@target_class::combined_routes
               if @@hide_documentation_path
-                routes.reject!{ |route, value| "/#{route}/".index(parse_path(@@mount_path, nil) << '/') == 0 }
+                routes.reject!{ |route, value| "#{@@mount_path}/#{route}/".index(parse_path(@@mount_path, nil) << '/') == 0 }
               end
 
               routes_array = routes.keys.map do |local_route|
-                  { :path => "#{parse_path(route.route_path.gsub('(.:format)', ''),route.route_version)}/#{local_route}#{@@hide_format ? '' : '.{format}'}" }
+                { :path => "#{parse_path(route.route_path.gsub('(.:format)', ''),route.route_version)}/#{local_route}#{@@hide_format ? '' : '.{format}'}" }
               end
+              routes_array.delete_if{|r|r.nil?}
+
               {
                 apiVersion: api_version,
                 swaggerVersion: "1.1",
@@ -100,31 +88,34 @@ module Grape
             get "#{@@mount_path}/:name" do
               header['Access-Control-Allow-Origin'] = '*'
               header['Access-Control-Request-Method'] = '*'
-              routes = @@target_class::combined_routes[params[:name]]
-              routes_array = routes.map do |route|
-                unless route.instance_variable_get("@options")[:no_doc]
+              routes = @@target_class::combined_routes.select{|key,val| key.to_s == params[:name]}
+              routes_array = routes.map do |k,route_classes|
+                route_classes.map do |route|
+                #routes_array = routes.map do |route|
+                  unless route.instance_variable_get("@options")[:no_doc]
                     #notes = route.route_notes && @@markdown ? Kramdown::Document.new(route.route_notes.strip_heredoc).to_html : route.route_notes
                     notes = route.route_notes && @@markdown ? Kramdown::Document.new(strip_heredoc(route.route_notes)).to_html : route.route_notes
                     if @@include_object_fields
                       additional_notes = describe_entity_documentation(route.instance_variable_get("@options")[:object_fields])
                       notes << additional_notes unless additional_notes.blank?
                     end
-                allowed_methods = route.instance_variable_get("@options")[:allowed_methods] ? route.instance_variable_get("@options")[:allowed_methods] : ['GET']
-                http_codes = parse_http_codes route.route_http_codes
-                operations = {
-                        :notes => notes,
-                        :summary => route.route_description || '',
-                        :nickname   => (route.route_method || allowed_methods.join(',')) + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
-                        :httpMethod => (route.route_method || allowed_methods.join(',')),
-                        :parameters => parse_header_params(route.route_headers) +
-                          parse_params(route.route_params, route.route_path, (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')))
-                      }
+                    allowed_methods = route.instance_variable_get("@options")[:allowed_methods] ? route.instance_variable_get("@options")[:allowed_methods] : ['GET']
+                    http_codes = parse_http_codes route.route_http_codes
+                    operations = {
+                            :notes => notes,
+                            :summary => route.route_description || '',
+                            :nickname   => (route.route_method || allowed_methods.join(',')) + route.route_path.gsub(/[\/:\(\)\.]/,'-'),
+                            :httpMethod => (route.route_method || allowed_methods.join(',')),
+                            :parameters => parse_header_params(route.route_headers) +
+                              parse_params(route.route_params, route.route_path, (route.route_method || route.instance_variable_get("@options")[:allowed_methods].join(',')))
+                          }
 
-                operations.merge!({:errorResponses => http_codes}) unless http_codes.empty?
-                {
-                  :path => parse_path(route.route_path, api_version),
-                  :operations => [operations]
-                }
+                    operations.merge!({:errorResponses => http_codes}) unless http_codes.empty?
+                    {
+                      :path => parse_path(route.route_path, api_version),
+                      :operations => [operations]
+                    }
+                  end
                 end
               end
               routes_array.flatten!
