@@ -52,7 +52,6 @@ module Grape
             @@hide_documentation_path = options[:hide_documentation_path]
             @@hide_format = options[:hide_format]
             @@include_object_fields = options[:display_object_fields]
-
             api_version = options[:api_version]
             base_path = options[:base_path]
 
@@ -63,6 +62,7 @@ module Grape
 
               # clear the unexisting routes (not sure why this is happenning)
               routes = @@target_class::combined_routes
+
               if @@hide_documentation_path
                 routes.reject!{ |route, value| "#{@@mount_path}/#{route}/".index(parse_path(@@mount_path, nil) << '/') == 0 }
               end
