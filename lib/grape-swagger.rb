@@ -153,7 +153,9 @@ module Grape
                   dataType = value.is_a?(Hash) ? value[:type]||'String' : 'String'
                   description = value.is_a?(Hash) ? value[:desc] || value[:description] : ''
                   required = value.is_a?(Hash) ? !!value[:required] : false
-                  paramType = path.include?(":#{param}") ? 'path' : (method == 'POST') ? 'form' : 'query'
+                  #paramType = path.include?(":#{param}") ? 'path' : (method == 'POST') ? 'form' : 'query'
+                  # For now just use query, since that's the only way to make it work for our version of swagger
+                  paramType = path.include?(":#{param}") ? 'path' : 'query'
                   name = (value.is_a?(Hash) && value[:full_name]) || param
                   {
                     paramType: paramType,
